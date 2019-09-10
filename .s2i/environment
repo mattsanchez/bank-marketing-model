@@ -1,0 +1,1 @@
+ROUTES=bank-marketing/predict:model.predict:predict
