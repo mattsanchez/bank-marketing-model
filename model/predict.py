@@ -1,6 +1,7 @@
 import pickle
 import pandas as pd
 import numpy as np
+import json
 
 
 with open('./model/model.pk', 'rb') as f:
@@ -53,4 +54,4 @@ def predict(msg) -> dict:
     x = scaler.transform(transform(df, model))
     y = clf.predict(x)
 
-    return {'predictions': pd.Series(y).to_json(orient='values')}
+    return {'predictions': json.loads(pd.Series(y).to_json(orient='values'))}
