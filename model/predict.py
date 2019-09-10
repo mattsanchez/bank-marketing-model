@@ -53,4 +53,4 @@ def predict(msg) -> dict:
     x = scaler.transform(transform(df, model))
     y = clf.predict(x)
 
-    return {'predictions': list(y.astype(int))}
+    return {'predictions': pd.Series(y).to_json(orient='values')}
