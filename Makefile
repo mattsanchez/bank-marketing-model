@@ -1,4 +1,4 @@
-.PHONY: build inspect-image run-daemon
+.PHONY: build inspect-image run-daemon test
 
 build:
 	s2i build . c12e/cortex-s2i-daemon-python36-slim:1.0-SNAPSHOT c12e/bank-marketing-model
@@ -14,3 +14,6 @@ run:
 
 test-endpoint:
 	http -v -j POST :5111/bank-marketing/predict < ./test/1-instance.json
+
+test:
+	pytest -s

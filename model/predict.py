@@ -1,5 +1,6 @@
 import pickle
 import pandas as pd
+import numpy as np
 
 
 with open('./model/model.pk', 'rb') as f:
@@ -52,4 +53,4 @@ def predict(msg) -> dict:
     x = scaler.transform(transform(df, model))
     y = clf.predict(x)
 
-    return {'predictions': list(y)}
+    return {'predictions': list(y.astype(int))}
