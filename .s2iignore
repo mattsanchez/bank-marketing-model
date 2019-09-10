@@ -1,0 +1,8 @@
+test/*
+notebooks/*
+data/*
+.vscode/*
+.gitignore
+LICENSE
+Makefile
+requirements-dev.txt

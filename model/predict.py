@@ -46,8 +46,8 @@ def transform(df, model):
     return df
 
 
-def predict(msg: dict) -> dict:
-    instances = msg.get('payload', {}).get('instances', [])
+def predict(msg) -> dict:
+    instances = msg.payload.get('instances', [])
     df = pd.DataFrame(columns=model['columns'], data=instances)
     x = scaler.transform(transform(df, model))
     y = clf.predict(x)
