@@ -1,9 +1,9 @@
+import logging
 import json
 import pandas as pd
-import logging
 from cortex import Cortex, Message
 
-log = logging.getLogger(__name__)
+log = logging.getLogger()
 
 cortex = Cortex.local('./cortex')
 builder = cortex.builder()
@@ -22,8 +22,7 @@ pipeline.remove_step('y_dummies')
 
 def predict(msg: Message) -> dict:
     instances = msg.payload.get('instances', [])
-    log.info(f'Instances: {instances}')
-    print(f'Instances: {instances}')
+    log.info(f'Instances: {instances[0:5]}')
 
     df = pd.DataFrame(columns=pipeline.get_context('columns'), data=instances)
     
