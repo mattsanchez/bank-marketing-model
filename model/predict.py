@@ -1,57 +1,49 @@
-import pickle
-import pandas as pd
-import numpy as np
 import json
+import pandas as pd
+import logging
+from cortex import Cortex, Message
 
+log = logging.getLogger(__name__)
 
-with open('./model/model.pk', 'rb') as f:
-    model = pickle.load(f)
-    clf = model['classifier']
+cortex = Cortex.local('./cortex')
+builder = cortex.builder()
+exp = cortex.experiment('default/bank-marketing')
+run = exp.last_run()
+if not run:
+    raise Exception('Model has not been trained locally yet - run not found.')
 
-with open('./model/scaler.pk', 'rb') as f:
-    scaler = pickle.load(f)
+train_ds = cortex.dataset('default/bank-marketing-train')
 
-def transform_age(df):
-    df.loc[df['age'] <= 32, 'age'] = 1
-    df.loc[(df['age'] > 32) & (df['age'] <= 47), 'age'] = 2
-    df.loc[(df['age'] > 47) & (df['age'] <= 70), 'age'] = 3
-    df.loc[(df['age'] > 70) & (df['age'] <= 98), 'age'] = 4
-           
-    return df
+# Setup predict pipeline by copying the train pipeline and dropping the y_dummies step
+train_pipeline = train_ds.pipeline('train')
+pipeline = builder.pipeline('predict')
+pipeline.from_pipeline(train_pipeline)
+pipeline.remove_step('y_dummies')
 
-
-def transform_duration(df):
-    df.loc[df['duration'] <= 102, 'duration'] = 1
-    df.loc[(df['duration'] > 102) & (df['duration'] <= 180)  , 'duration'] = 2
-    df.loc[(df['duration'] > 180) & (df['duration'] <= 319)  , 'duration'] = 3
-    df.loc[(df['duration'] > 319) & (df['duration'] <= 644.5), 'duration'] = 4
-    df.loc[df['duration']  > 644.5, 'duration'] = 5
-
-    return df
-
-
-def transform_poutcome(df):
-    df['poutcome'].replace(['nonexistent', 'failure', 'success', 'unknown', 'other'], [1,2,3,4,5], inplace  = True)
-
-
-def transform(df, model):
-    transform_poutcome(df)
-    transform_age(df)
-    transform_duration(df)
-
-    columns = model['columns']
-    for c in columns:
-        encoder = model.get(f'{c}_encoder')
-        if encoder:
-            df[c] = encoder.transform(df[c])
-
-    return df
-
-
-def predict(msg) -> dict:
+def predict(msg: Message) -> dict:
     instances = msg.payload.get('instances', [])
-    df = pd.DataFrame(columns=model['columns'], data=instances)
-    x = scaler.transform(transform(df, model))
+    log.info(f'Instances: {instances}')
+    print(f'Instances: {instances}')
+
+    df = pd.DataFrame(columns=pipeline.get_context('columns'), data=instances)
+    
+    # Prepare model frame for predition using the training pipeline
+    df = pipeline.run(df)
+
+    # Get the classifier from the run
+    clf = run.get_artifact('model')
+
+    # Use the same scaler transform used on the training data
+    scaler = pipeline.get_context('scaler')
+    x = scaler.transform(df)
     y = clf.predict(x)
 
     return {'predictions': json.loads(pd.Series(y).to_json(orient='values'))}
+
+
+if __name__ == "__main__":
+    with open('./test/1-instance.json') as f:
+        test_json = json.load(f)
+    msg = Message(test_json)
+    result = predict(msg)
+    print(result)
