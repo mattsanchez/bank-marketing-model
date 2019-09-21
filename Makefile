@@ -1,4 +1,7 @@
-.PHONY: build inspect-image run-daemon kill-daemon test train
+.PHONY: build inspect-image run-daemon kill-daemon test train clean
+
+clean:
+	rm -rf ./cortex
 
 build:
 	s2i build -c . c12e/cortex-s2i-daemon-python36-slim:1.0-SNAPSHOT c12e/bank-marketing-model

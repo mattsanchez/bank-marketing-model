@@ -102,7 +102,7 @@ def train_local():
 
         run.log_artifact('model', rfc)
         exp.save_run(run)
-        print(run)
+    ds.save()
 
 
 if __name__ == "__main__":
