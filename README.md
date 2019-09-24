@@ -7,6 +7,7 @@ Demonstrates how to predict propensity to buy using a well known bank marketing 
 1. Python 3.6+
 2. [Source-to-Image](https://github.com/openshift/source-to-image)
 3. Make
+4. (Optional) [Httpie](https://httpie.org/) (only if you want to run ```make test-endpoint```)
 
 ## Quick Start
 1. Install Python dependencies:
