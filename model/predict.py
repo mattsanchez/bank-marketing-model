@@ -1,7 +1,10 @@
 import logging
 import json
 import pandas as pd
+import random
 from cortex import Cortex, Message
+
+random.seed(7113)
 
 log = logging.getLogger()
 
@@ -18,7 +21,19 @@ train_ds = cortex.dataset('default/bank-marketing-train')
 train_pipeline = train_ds.pipeline('train')
 pipeline = builder.pipeline('predict')
 pipeline.from_pipeline(train_pipeline)
+pipeline.remove_step('encode_labels')
 pipeline.remove_step('y_dummies')
+
+def encode_columns(pipeline, df):
+    columns = pipeline.get_context('columns')
+    for c in columns:
+        encoder = pipeline.get_context(f'{c}_encoder')
+        if encoder:
+            df[c] = encoder.transform(df[c])
+        
+
+pipeline.add_step(encode_columns)
+
 
 def predict(msg: Message) -> dict:
     instances = msg.payload.get('instances', [])
@@ -34,9 +49,10 @@ def predict(msg: Message) -> dict:
 
     # Use the same scaler transform used on the training data
     scaler = pipeline.get_context('scaler')
+    
     x = scaler.transform(df)
     y = clf.predict(x)
-
+    
     return {'predictions': json.loads(pd.Series(y).to_json(orient='values'))}
 
 
