@@ -5,7 +5,8 @@ from sklearn.metrics import confusion_matrix, accuracy_score
 from sklearn.utils import resample
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
-from cortex import Cortex
+from sklearn.tree import DecisionTreeClassifier
+from cortex import Cortex, Message
 
 _columns = ['age', 'job', 'marital', 'education', 'default', 'balance', 'housing', 'loan', 'contact', 'day', 'month', 'duration', 'campaign', 'pdays', 'previous', 'poutcome']
 _encoded_columns = ['job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month']
@@ -43,11 +44,37 @@ def y_dummies(pipeline, df):
     return pd.concat([df, y], axis=1)
 
 
-def train_local():
+def train_classifier(exp, X_train, y_train, X_test, y_test, k_fold, clf, **params):
+    with exp.start_run() as run:
+        for k, v in params.items():
+            run.log_param(k, v)
+
+        clf.fit(X_train, y_train)
+    
+        rfcpred = clf.predict(X_test)
+        accuracy_score = (cross_val_score(clf, X_train, y_train, cv=k_fold, n_jobs=6, scoring = 'accuracy').mean())
+        run.log_metric('accuracy', accuracy_score)
+
+        probs = clf.predict_proba(X_test)
+        preds = probs[:,1]
+        fprrfc, tprrfc, thresholdrfc = metrics.roc_curve(y_test, preds)
+        roc_aucrfc = metrics.auc(fprrfc, tprrfc)
+        run.log_metric('AUC', roc_aucrfc)
+
+        run.log_artifact('model', clf)
+        exp.save_run(run)
+
+
+def train_local(msg: Message):
     cortex = Cortex.local('./cortex')
     builder = cortex.builder()
 
-    train_df = pd.read_csv('./data/bank-full.csv', sep=';')
+    import os
+    print(f'PAYLOAD: {os.getenv("PAYLOAD")}')
+
+    training_data_uri = msg.payload.get('$ref', './data/bank-full.csv')
+
+    train_df = pd.read_csv(training_data_uri, sep=';')
     ds = builder.dataset('default/bank-marketing-train').from_df(train_df).build()
     p = ds.pipeline('train', clear_cache=True)
     p.reset()
@@ -80,30 +107,19 @@ def train_local():
     X_test = sc_X.transform(X_test)
 
     exp = cortex.experiment('default/bank-marketing')
-    exp.reset() # only need the latest run for now
+    exp.reset() # only need the latest run(s) for now
 
-    with exp.start_run() as run:
-        n_estimators = 200
-        run.log_param('n_estimators', n_estimators)
-        run.log_param('type', 'RandomForest')
+    n_estimators = 200
+    rfc = RandomForestClassifier(n_estimators = n_estimators, n_jobs=6, random_state = 12) #criterion = entopy,gini
+    train_classifier(exp, X_train, y_train, X_test, y_test, k_fold, rfc, n_estimators=n_estimators, type='RandomForest')
 
-        rfc = RandomForestClassifier(n_estimators = n_estimators, n_jobs=6, random_state = 12)#criterion = entopy,gini
-        rfc.fit(X_train, y_train)
+    dt = DecisionTreeClassifier()
+    train_classifier(exp, X_train, y_train, X_test, y_test, k_fold, dt, type='DecisionTree')
     
-        rfcpred = rfc.predict(X_test)
-        accuracy_score = (cross_val_score(rfc, X_train, y_train, cv=k_fold, n_jobs=6, scoring = 'accuracy').mean())
-        run.log_metric('accuracy', accuracy_score)
-
-        probs = rfc.predict_proba(X_test)
-        preds = probs[:,1]
-        fprrfc, tprrfc, thresholdrfc = metrics.roc_curve(y_test, preds)
-        roc_aucrfc = metrics.auc(fprrfc, tprrfc)
-        run.log_metric('AUC', roc_aucrfc)
-
-        run.log_artifact('model', rfc)
-        exp.save_run(run)
     ds.save()
+
+    return {'experiment': exp.name}
 
 
 if __name__ == "__main__":
-    train_local()
+    train_local(Message({'payload': {'$ref': './data/bank-full.csv'}}))

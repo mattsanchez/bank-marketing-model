@@ -1,0 +1,6 @@
+steps:
+- name: 'gcr.io/$PROJECT_ID/s2i'
+  args: ['build', '.', 'c12e/cortex-s2i-model-python36-slim:1.0-SNAPSHOT', 'gcr.io/$PROJECT_ID/bank-marketing-model:$SHORT_SHA']
+
+images:
+- 'gcr.io/$PROJECT_ID/bank-marketing-model:$SHORT_SHA'

@@ -1,5 +1,5 @@
 import pandas as pd
-from model.predict import predict
+from model.predict import predict_rfc
 from cortex import Cortex, Message
 import warnings
 warnings.filterwarnings('ignore')
@@ -18,7 +18,7 @@ def test_predict_1():
     y.loc[y == 'yes'] = 1
 
     instances = list(x.values)
-    predictions = predict(Message({'payload': {'instances': instances}}))
+    predictions = predict_rfc(Message({'payload': {'instances': instances}}), {})
     print(f'Predictions: {predictions}')
 
     # Check that our model made a correct prediction
@@ -38,7 +38,7 @@ def test_predict_2():
     y.loc[y == 'yes'] = 1
 
     instances = list(x.values)
-    predictions = predict(Message({'payload': {'instances': instances}}))
+    predictions = predict_rfc(Message({'payload': {'instances': instances}}), {})
     print(f'Predictions: {predictions}')
 
     # Check that our model made the correct predictions
@@ -55,7 +55,7 @@ def test_predict_3():
 
     y = [0, 0, 1]
 
-    response = predict(Message({'payload': {'instances': instances}}))
+    response = predict_rfc(Message({'payload': {'instances': instances}}), {})
     predictions = response['predictions']
     print(f'Predictions: {predictions}')
 

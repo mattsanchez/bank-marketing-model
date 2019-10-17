@@ -1,1 +1,5 @@
-ROUTES=bank-marketing/predict:model.predict:predict
+ROUTES=bank-marketing/predict/random-forest:model.predict:predict_rfc,bank-marketing/predict/decision-tree:model.predict:predict_dt
+TRAIN_MODULE=model.train
+TRAIN_FUNCTION=train_local
+PREDICT_MODULE=model.predict
+PREDICT_FUNCTION=predict_rfc

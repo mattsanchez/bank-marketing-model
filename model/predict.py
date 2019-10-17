@@ -11,9 +11,30 @@ log = logging.getLogger()
 cortex = Cortex.local('./cortex')
 builder = cortex.builder()
 exp = cortex.experiment('default/bank-marketing')
-run = exp.last_run()
-if not run:
-    raise Exception('Model has not been trained locally yet - run not found.')
+
+def load_model(exp, filter, sort=None):
+    if not sort:
+        sort = {"endTime": -1}
+
+    # HACK for local mode experiments
+    runs = exp.runs()
+    for run in runs:
+        if run.get_param('type') == filter['params.type']:
+            return run.get_artifact('model')
+    
+    raise Exception(f'Model not found for selection filter: {filter}')
+    
+    # the below only works with remote experiments
+    # runs = exp.find_runs(filter, sort, 1)
+    # if len(runs) == 0:
+        # raise Exception(f'Model not found for selection filter: {filter}')
+
+    # run = runs[0]
+    # return run.get_artifact('model')
+
+
+rfc = load_model(exp, {"params.type": "RandomForest"})
+dt = load_model(exp, {"params.type": "DecisionTree"})
 
 train_ds = cortex.dataset('default/bank-marketing-train')
 
@@ -21,8 +42,8 @@ train_ds = cortex.dataset('default/bank-marketing-train')
 train_pipeline = train_ds.pipeline('train')
 pipeline = builder.pipeline('predict')
 pipeline.from_pipeline(train_pipeline)
-pipeline.remove_step('encode_labels')
-pipeline.remove_step('y_dummies')
+pipeline.remove_step('encode_labels')   # Replace with step that uses encoders from training
+pipeline.remove_step('y_dummies')       # Remove all steps that deal with target variable
 
 def encode_columns(pipeline, df):
     columns = pipeline.get_context('columns')
@@ -34,8 +55,7 @@ def encode_columns(pipeline, df):
 
 pipeline.add_step(encode_columns)
 
-
-def predict(msg: Message) -> dict:
+def do_predict(msg: Message, clf) -> dict:
     instances = msg.payload.get('instances', [])
     log.info(f'Instances: {instances[0:5]}')
 
@@ -43,9 +63,6 @@ def predict(msg: Message) -> dict:
     
     # Prepare model frame for predition using the training pipeline
     df = pipeline.run(df)
-
-    # Get the classifier from the run
-    clf = run.get_artifact('model')
 
     # Use the same scaler transform used on the training data
     scaler = pipeline.get_context('scaler')
@@ -56,9 +73,16 @@ def predict(msg: Message) -> dict:
     return {'predictions': json.loads(pd.Series(y).to_json(orient='values'))}
 
 
+def predict_rfc(msg: Message, model_context: dict) -> dict:
+    return do_predict(msg, rfc)
+
+def predict_dt(msg: Message, model_context: dict) -> dict:
+    return do_predict(msg, dt)
+
+
 if __name__ == "__main__":
-    with open('./test/1-instance.json') as f:
+    with open('./test/2-instances.json') as f:
         test_json = json.load(f)
     msg = Message(test_json)
-    result = predict(msg)
+    result = predict_rfc(msg)
     print(result)
